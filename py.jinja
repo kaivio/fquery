@@ -1,0 +1,33 @@
+===
+--no-rich: false
+{% set name =  ('_'.join(args))  or 'hello'  %}
+name: {{name}}
+output: {{name}}.py
+===
+import sys,os,re,json
+from pathlib import Path
+from datetime import datetime
+
+{% if not no_rich -%}
+from rich.console import Console
+from rich.traceback import install
+from rich import inspect
+install(show_locals=True,suppress=[])
+console = Console()
+show = console.print
+{% endif %}
+{%- set name = '_'.join(args) or 'hello' %}
+
+def main():
+    print('hello, world!')
+    {{name}}()
+
+def {{name}}():
+    pass
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        sys.exit(0)
+
