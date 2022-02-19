@@ -1,9 +1,39 @@
 import sys,os,re,json
 from pathlib import Path
 from datetime import datetime
+from dateutil.relativedelta import relativedelta
 
 def main():
     print('hello, world!')
+
+
+def abstime(timeago:str,now=datetime.now()) -> float:
+    tm = now.timetuple()
+    i = re.match('[+-]?[\d][\d.]*',timeago)
+    if i:
+        i = i.group(0)
+
+    u = timeago[len(i):]
+    i = int(i)
+    ago = now 
+
+    if len(u) == 0 or u[0] == 's':
+        ago = now - relativedelta(seconds=i)
+    elif u in ['M','mon','month']:
+        ago = now - relativedelta(months=i)
+    elif re.match(r'm(in(ute))?',u):
+        ago = now - relativedelta(minutes=i)
+    elif u[0] == 'h':
+        ago = now - relativedelta(hours=i)
+    elif u[0] == 'd':
+        ago = now - relativedelta(days=i)
+    elif u[0] == 'y':
+        ago = now - relativedelta(years=i)
+
+    
+    return ago.timestamp()
+
+
 
 def parse_size(TGMKib:str) -> int:
     s = TGMKib.lower()
