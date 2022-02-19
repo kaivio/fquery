@@ -48,7 +48,21 @@ def fq(argv=sys.argv[1:]):
     
     show(qs)
     for entry in query(qs,dir):
-        show(entry.path)
+        path = entry.path
+        ppath = list(path)
+        for by,span in entry.ctx['spans']:
+            if by == 'name':
+                b = len(entry.path) - len(entry.name)
+                span[0] += b
+                span[1] += b
+
+            if by in ['name','path']:
+                for i in range(len(ppath)):
+                    if i in range(*span):
+                        ppath[i] = '[red]'+ppath[i]+'[/red]'
+
+        show(''.join(ppath))
+        
 
 def pre_opts(opts):
     qs = []
@@ -96,7 +110,6 @@ def split_op(s,default) -> (str,str):
         s = s[:-len(op)]
     else:
         op = default
-    show(s,op)
     return (s,op)
 
         
@@ -150,22 +163,29 @@ def test (
 
     if rv == None:
         return False
-
+    ctx = entry.ctx
+    spans = ctx['spans'] 
+    res = False
     iv = type(rv)(iv)
     if op == 'in':
-        return rv in iv
+        res = rv in iv
     elif op == 'has':
-        return iv in rv
+        pos = rv.find(iv)
+        if pos != -1:
+            res = True
+            span = [pos,len(rv)-(len(rv)-pos-len(iv))]
+            spans.append([by,span])
+            
     elif op in ['lt','-']:
-        return rv < iv
+        res = rv < iv
     elif op in ['rt','+']:
-        return rv > iv
+        res = rv > iv
     elif op in ['le','-=']:
-        return rv <= iv
+        res = rv <= iv
     elif op in ['re','+=']:
-        return rv >= iv
+        res = rv >= iv
     
-    return False
+    return res
     
 
 def query (
@@ -181,6 +201,7 @@ def query (
 
     dir_iter = os.scandir(dir) 
     for entry in dir_iter:
+        entry = MyEntry(entry)
         passed = True
         for q in qs: 
             (by,op,iv) = q
@@ -213,6 +234,20 @@ def parse_time(s:str) -> float:
     res =  abstime(s)
     time_parsed[s] = res
     return res
+
+class MyEntry():
+    ctx = {}
+    entry:os.DirEntry
+    def  __init__(self,entry):
+        self.entry = entry
+        self.ctx = {
+            'spans':[]
+        }
+        
+    def __getattribute__(self,x):
+        if x != 'ctx':
+            return object.__getattribute__(object.__getattribute__(self,'entry'),x)
+        return object.__getattribute__(self,x)
 
 
 if __name__ == "__main__":
