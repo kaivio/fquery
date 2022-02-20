@@ -84,7 +84,7 @@ fq 5h      # 修改时间大于等于5小时前
 fq -q mtime re 5h
 fq 4min-   # 修改时间小于4分钟前
 fq -q mtime lt 4min
-fq 1d+=    m 修改时间大于等于1天前
+fq 1d+=    # 修改时间大于等于1天前
 fq -q mtime re 1d
 ```
 
