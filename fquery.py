@@ -36,7 +36,21 @@ def fq(argv=sys.argv[1:]):
         default=[],
         help='alias -q text has <TEXT>'
     )
-
+    param ('--link','-l',
+        action= 'store_true',
+        default=False,
+        help='alias -q type is link'
+    )
+    param ('--file','-f',
+        action= 'store_true',
+        default=False,
+        help='alias -q type is file'
+    )
+    param ('--dir','-d',
+        action= 'store_true',
+        default=False,
+        help='alias -q type is dir'
+    )
     param ('-n',
         action='append',
         default=[]
@@ -80,13 +94,17 @@ def fq(argv=sys.argv[1:]):
 
 def pre_opts(opts):
     qs = []
-    for text in opts.text:
-        qs.append(['text','has',text])
+    optdict = vars(opts)
+    for i in ['file','dir','link','dev']:
+        optdict.get(i,False) and qs.append(['type','is',i])
+
     nots = pre_args(opts.n)
     for by,op,iv in nots:
         op = 'not-'+op
         qs.append([by,op,iv])
 
+    for text in opts.text:
+        qs.append(['text','has',text])
     return qs
 
 def pre_args(args):
@@ -111,9 +129,9 @@ def pre_args(args):
                 op ='find'
 
         elif s[0] == '.':
-            op ='prefix'
-        elif s[-1] == '.':
             op ='suffix'
+        elif s[-1] == '.':
+            op ='prefix'
 
         qs.append([by,op,s])
 
@@ -148,8 +166,16 @@ def test (
     elif by  == 'path':
         rv = entry.path
     elif by == 'type':
-        rv = ''
-        #TODO
+        if iv == 'file':
+            rv = entry.is_file()
+        elif iv == 'dir':
+            rv = entry.is_dir()
+        elif iv == 'link':
+            rv = entry.is_symlink()
+        #TODO: other type
+
+        iv = True
+
     elif by == 'text':
         try:
             rv = read(entry.path)
@@ -202,10 +228,12 @@ def test (
                 pos,
                 len(rv)-(len(rv)-pos-len(iv))
             ]
+    elif op == 'suffix':
+        res = rv.endswith(iv)
+        span = res and [len(rv)-len(iv),len(rv)] 
     elif op == 'prefix':
         res = rv.startswith(iv)
         span = res and [0,len(iv)] 
-        res and show(res,rv,op,iv)
     elif op in ['lt','-']:
         res = rv < iv
     elif op in ['rt','+']:
@@ -214,6 +242,8 @@ def test (
         res = rv <= iv
     elif op in ['re','+=']:
         res = rv >= iv
+    elif op in ['is','eq','=']:
+        res = rv == iv
     
     span and spans.append([by,span])
     return sign^res
