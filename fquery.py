@@ -104,7 +104,11 @@ def pre_opts(opts):
         qs.append([by,op,iv])
 
     for text in opts.text:
-        qs.append(['text','has',text])
+        op = 'has'
+        if text[0] == '/' and text[-1] == '/':
+            op = 'match'
+            text = text[1:-1]
+        qs.append(['text',op,text])
     return qs
 
 def pre_args(args):
@@ -126,7 +130,7 @@ def pre_args(args):
             s = s[1:]
             if s[-1] == '/':
                 s = s[:-1]
-                op ='find'
+                op ='match'
 
         elif s[0] == '.':
             op ='suffix'
@@ -234,6 +238,14 @@ def test (
     elif op == 'prefix':
         res = rv.startswith(iv)
         span = res and [0,len(iv)] 
+    elif op == 'match':
+        m = re.search(iv,rv)
+        if m:
+            res = True
+            span = list(m.span())
+    elif op == 'fullmatch':
+        res = False
+        #TODO
     elif op in ['lt','-']:
         res = rv < iv
     elif op in ['rt','+']:
@@ -244,8 +256,11 @@ def test (
         res = rv >= iv
     elif op in ['is','eq','=']:
         res = rv == iv
-    
-    span and spans.append([by,span])
+   
+    if span:
+        if by == 'text':
+            #TODO: cat match line 
+        spans.append([by,span])
     return sign^res
     
 
