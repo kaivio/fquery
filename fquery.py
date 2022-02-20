@@ -259,6 +259,7 @@ def test (
    
     if span:
         if by == 'text':
+            pass
             #TODO: cat match line 
         spans.append([by,span])
     return sign^res
@@ -301,7 +302,7 @@ def deep_query(qs,entry,preres,depth):
     for by,op,iv in qs:
         if op[0:4] == 'not-':
             op = op[4:]
-            if by in ['name','path']:
+            if by in ['name','path','type']:
                 nots.append([by,op,iv])
 
     excluded = False
