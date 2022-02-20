@@ -36,6 +36,19 @@ def fq(argv=sys.argv[1:]):
         default=[],
         help='alias -q text has <TEXT>'
     )
+
+    param ('-n',
+        action='append',
+        default=[]
+    )
+
+
+    param ('--depth',
+        type=int,
+        default=0,
+        help="recursion depth"
+    )
+
     (opts,args) = parser.parse_known_args(argv)
     qs = [
         *opts.query,
@@ -47,7 +60,8 @@ def fq(argv=sys.argv[1:]):
     
     
     show(qs)
-    for entry in query(qs,dir):
+    show(opts)
+    for entry in query(qs,dir,opts.depth):
         path = entry.path
         ppath = list(path)
         for by,span in entry.ctx['spans']:
@@ -68,6 +82,10 @@ def pre_opts(opts):
     qs = []
     for text in opts.text:
         qs.append(['text','has',text])
+    nots = pre_args(opts.n)
+    for by,op,iv in nots:
+        op = 'not-'+op
+        qs.append([by,op,iv])
 
     return qs
 
@@ -119,10 +137,16 @@ def test (
         iv: str,
         entry:os.DirEntry
     ) -> bool:
+    sign = False
+    if op[:4] == 'not-':
+        op = op[4:]
+        sign = True
 
     rv = None
     if by == 'name':
         rv = entry.name
+    elif by  == 'path':
+        rv = entry.path
     elif by == 'type':
         rv = ''
         #TODO
@@ -130,7 +154,7 @@ def test (
         try:
             rv = read(entry.path)
         except:
-            return False
+            return sign ^ False
     elif by in [
         'time',
         'atime',
@@ -162,9 +186,10 @@ def test (
             iv = parse_time(iv)
 
     if rv == None:
-        return False
+        return sign ^ False
     ctx = entry.ctx
     spans = ctx['spans'] 
+    span = []
     res = False
     iv = type(rv)(iv)
     if op == 'in':
@@ -173,9 +198,14 @@ def test (
         pos = rv.find(iv)
         if pos != -1:
             res = True
-            span = [pos,len(rv)-(len(rv)-pos-len(iv))]
-            spans.append([by,span])
-            
+            span = [
+                pos,
+                len(rv)-(len(rv)-pos-len(iv))
+            ]
+    elif op == 'prefix':
+        res = rv.startswith(iv)
+        span = res and [0,len(iv)] 
+        res and show(res,rv,op,iv)
     elif op in ['lt','-']:
         res = rv < iv
     elif op in ['rt','+']:
@@ -185,37 +215,61 @@ def test (
     elif op in ['re','+=']:
         res = rv >= iv
     
-    return res
+    span and spans.append([by,span])
+    return sign^res
     
 
 def query (
         qs:'[(by,op,iv), ...]',
-        dir=['.']
+        dir=['.'],
+        depth=0
     ):
     if type(dir) in [list,tuple]:
         for d in dir:
-            q = query(qs,d)
+            q = query(qs,d,depth)
             for i in q:
                 yield i
         return 
 
     dir_iter = os.scandir(dir) 
     for entry in dir_iter:
-        entry = MyEntry(entry)
+        entry:os.DirEntry = MyEntry(entry)
         passed = True
         for q in qs: 
-            (by,op,iv) = q
-            if op[:4] == 'not-':
-                op = op[4:]
-                passed = not passed
-    
-            if not test(by,op,iv,entry):
-                passed = not passed
+            passed = True
+            if not test(*q,entry):
+                passed = False
                 break
+
         if passed:
             yield entry
+        
+        if depth > 0 and entry.is_dir():
+           for i in deep_query(qs,entry,passed,depth-1):
+               yield i
 
     dir_iter.close()
+
+
+def deep_query(qs,entry,preres,depth):
+    nots = []
+    for by,op,iv in qs:
+        if op[0:4] == 'not-':
+            op = op[4:]
+            if by in ['name','path']:
+                nots.append([by,op,iv])
+
+    excluded = False
+    if nots:
+        for q in nots:
+            if test(*q,entry):
+                excluded = True
+    elif preres:
+        excluded = True
+
+    if not excluded:
+        return query(qs,entry.path,depth)
+    return []
 
 def read(file,mode='r'):
     with open(file,mode) as f:
